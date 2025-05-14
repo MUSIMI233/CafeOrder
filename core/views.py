@@ -9,12 +9,13 @@ from django.contrib import messages
 from django import forms
 
 from .forms import BusinessUserCreationForm
-from .models import Business, Food, Order, Category, TimedPromotion
+from .models import Business, Food, Order, Category, TimedPromotion,Table
 from .serializers import OrderSerializer, OrderSubmissionSerializer
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from django.http import HttpResponse
 
 
 User = get_user_model()
@@ -228,15 +229,34 @@ def delete_order(request, order_id):
     return redirect('dashboard')
 
 # ============ 客户端菜单页面 ============
+# Update menu_view in views.py
 def menu_view(request):
-    categories = Category.objects.filter(is_active=True)
-    # 固定桌号为15，忽略请求中的值
-    table_number = "15"
-
-    return render(request, 'client/index.html', {
-        'categories': categories,
-        'table_number': table_number
-    })
+    # Get business ID and table number from query parameters
+    business_id = request.GET.get('business')
+    table_number = request.GET.get('table')
+    
+    # Validate parameters
+    if not business_id or not table_number:
+        # Handle missing parameters - redirect to error page or show message
+        return HttpResponse("Invalid QR code. Missing table or business information.")
+    
+    try:
+        # Get business and validate table exists
+        business = get_object_or_404(Business, id=business_id)
+        table = get_object_or_404(Table, business=business, table_number=table_number)
+        
+        # Get active categories for this business
+        categories = Category.objects.filter(business=business, is_active=True)
+        
+        return render(request, 'client/index.html', {
+            'categories': categories,
+            'table_number': table_number,
+            'business': business
+        })
+    except (Business.DoesNotExist, Table.DoesNotExist):
+        return render(request, 'client/error.html', {
+            'message': 'Invalid table or business information.'
+        })
 
 
 # ============ API ============
@@ -342,3 +362,68 @@ class OrderViewSet(viewsets.ModelViewSet):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+
+
+
+# QR code 
+import qrcode
+from django.conf import settings
+import os
+
+# Add to views.py
+
+@login_required
+def table_management_view(request):
+    """View for managing tables"""
+    business = get_object_or_404(Business, user=request.user)
+    tables = Table.objects.filter(business=business)
+    
+    # Define table form
+    class TableForm(forms.ModelForm):
+        class Meta:
+            model = Table
+            fields = ['table_number']
+    
+    # Process form submission
+    if request.method == 'POST':
+        # Handle delete table request
+        if 'delete_table' in request.POST:
+            table_id = request.POST.get('table_id')
+            try:
+                table = Table.objects.get(id=table_id, business=business)
+                table_number = table.table_number
+                table.delete()
+                messages.success(request, f"Table {table_number} has been deleted.")
+            except Table.DoesNotExist:
+                messages.error(request, "Table not found.")
+            return redirect('table_management')
+        
+        # Handle add table request
+        elif 'add_table' in request.POST:
+            form = TableForm(request.POST)
+            if form.is_valid():
+                table_number = form.cleaned_data['table_number']
+                
+                # Check if table already exists for this business
+                if Table.objects.filter(business=business, table_number=table_number).exists():
+                    messages.error(request, f"Table {table_number} already exists.")
+                else:
+                    new_table = form.save(commit=False)
+                    new_table.business = business
+                    new_table.is_active = True
+                    new_table.save()
+                    messages.success(request, f"Table {table_number} added successfully.")
+                return redirect('table_management')
+    else:
+        form = TableForm()
+    
+    # Add form styling
+    for field in form.fields.values():
+        field.widget.attrs.update({'class': 'form-control'})
+    
+    return render(request, 'dashboard/tables.html', {
+        'tables': tables,
+        'form': form,
+        'business': business
+    })

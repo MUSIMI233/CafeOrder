@@ -1,6 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .utils import generate_qr_code
+
 
 class BusinessUser(AbstractUser):
     business_name = models.CharField(max_length=100)
@@ -18,12 +22,13 @@ class Table(models.Model):
     table_number = models.CharField(max_length=10)
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='tables')
     is_active = models.BooleanField(default=True)
+    qr_code_image = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
 
     class Meta:
         unique_together = ('table_number', 'business')
 
     def __str__(self):
-        return f"{self.business.business_name} - {self.table_number}"
+        return f"{self.business.business_name} - Table {self.table_number}"
 
 class Category(models.Model):
     category = models.CharField(max_length=64)
@@ -89,3 +94,19 @@ class TimedPromotion(models.Model):
 
     def __str__(self):
         return f"Promo for {self.food.item} on {self.day_of_week}"
+
+
+@receiver(post_save, sender=Table)
+def create_table_qr_code(sender, instance, created, **kwargs):
+    """Generate QR code for newly created tables or update if table_number changed"""
+    # Check if QR code already exists
+    if created or not instance.qr_code_image:
+        qr_path = generate_qr_code(instance.business.id, instance.table_number)
+        # Update the instance without triggering the signal again
+        Table.objects.filter(id=instance.id).update(qr_code_image=qr_path)
+
+
+
+
+    
+

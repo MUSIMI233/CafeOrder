@@ -49,6 +49,7 @@
   <h5>🍱 Dashboard</h5>
   <a href="{% url 'dashboard' %}" class="{% if request.path == '/dashboard/' %}active{% endif %}">Order Management</a>
   <a href="{% url 'menu_management' %}" class="{% if request.path == '/dashboard/menu/' %}active{% endif %}">Menu Management</a>
+  <a href="{% url 'table_management' %}" class="{% if request.path == '/dashboard/tables/' %}active{% endif %}">Table Management</a>
 </div>
 
 

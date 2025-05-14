@@ -76,6 +76,8 @@
   <h5>🍱 Dashboard</h5>
   <a href="{% url 'dashboard' %}" class="{% if request.path == '/dashboard/' %}active{% endif %}">Order Management</a>
   <a href="{% url 'menu_management' %}" class="{% if request.path == '/dashboard/menu/' %}active{% endif %}">Menu Management</a>
+   <a href="{% url 'table_management' %}" class="{% if request.path == '/dashboard/tables/' %}active{% endif %}">Table Management</a>
+</div>
 </div>
 
 
@@ -141,3 +143,12 @@
 
 </body>
 </html>
+
+<!-- dashboard/tables.html -->
+{% for table in tables %}
+  <div class="card m-2 p-3">
+    <h5>桌号：{{ table.number }}</h5>
+    <img src="{{ table.qr_code_image.url }}" alt="QR for table {{ table.number }}" width="200">
+    <p><a href="{{ table.qr_code_image.url }}" download>下载二维码</a></p>
+  </div>
+{% endfor %}
