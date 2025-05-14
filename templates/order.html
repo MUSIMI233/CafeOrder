@@ -1,0 +1,18 @@
+<html>
+<head>
+  <title>点单页面</title>
+</head>
+<body>
+  <h2>菜单</h2>
+  <ul>
+    {% for food in foods %}
+      <li>
+        <strong>{{ food.name }}</strong> - {{ food.price }} 元<br>
+        <em>{{ food.description }}</em><br>
+        {% if food.image %}<img src="{{ food.image.url }}" width="100">{% endif %}<br>
+        <button onclick="alert('点了 {{ food.name }}')">点我</button>
+      </li>
+    {% endfor %}
+  </ul>
+</body>
+</html>

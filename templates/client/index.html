@@ -1,0 +1,417 @@
+<!-- templates/client/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Izakaya Menu</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #f8f2e4;
+      font-family: 'Arial', sans-serif;
+      color: #2d2d2d;
+      padding-bottom: 50px;
+    }
+    .top-banner {
+      background-color: #c9302c;
+      color: white;
+      padding: 15px 0;
+      text-align: center;
+    }
+    .restaurant-name {
+      font-size: 2rem;
+      font-weight: bold;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .table-badge {
+      background-color: white;
+      color: #c9302c;
+      border: 2px solid #ffffff;
+      padding: 2px 10px;
+      font-weight: bold;
+      border-radius: 4px;
+      display: inline-block;
+      margin-top: 5px;
+    }
+    .scrolling-tabs {
+      overflow-x: auto;
+      white-space: nowrap;
+      background-color: #fff;
+      padding: 0.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .category-btn {
+      display: inline-block;
+      margin-right: 5px;
+      font-weight: bold;
+      border: 1px solid #c9302c;
+      color: #c9302c;
+      background-color: white;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      padding: 5px 15px;
+      border-radius: 4px;
+    }
+    .category-btn.active {
+      background-color: #c9302c;
+      color: white;
+    }
+    .menu-item {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      display: flex;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .menu-item-image {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+    }
+    .menu-item-content {
+      padding: 10px;
+      flex-grow: 1;
+      position: relative;
+    }
+    .menu-item-title {
+      font-weight: bold;
+      margin: 0 0 5px 0;
+      font-size: 1rem;
+      text-transform: uppercase;
+    }
+    .menu-item-desc {
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .add-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background-color: white;
+      color: #28a745;
+      border: 1px solid #28a745;
+      font-size: 0.7rem;
+      font-weight: bold;
+      padding: 2px 10px;
+      border-radius: 4px;
+    }
+    .add-btn:hover {
+      background-color: #28a745;
+      color: white;
+    }
+    .japanese-icon {
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-banner">
+  <div class="restaurant-name">IZAKAYA SANDWICHES</div>
+  <div class="table-badge">TABLE {{ table_number }}</div>
+</div>
+
+<div class="scrolling-tabs">
+  <button class="category-btn active" data-category="all">ALL</button>
+  {% for category in categories %}
+    <button class="category-btn" data-category="{{ category.id }}">{{ category.category }}</button>
+  {% endfor %}
+</div>
+
+<div class="container py-3" id="menu-container">
+  <p class="text-center text-muted">Loading menu...</p>
+</div>
+
+<!-- 购物车浮动按钮 -->
+<div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: none;" id="cart-button">
+  <button class="btn btn-success rounded-circle" style="width: 60px; height: 60px; font-size: 24px;">
+    🛒
+    <span class="badge bg-danger" style="position: absolute; top: -5px; right: -5px;" id="cart-count">0</span>
+  </button>
+</div>
+
+<script>
+  // 全局购物车数据
+  let cart = [];
+  let allMenuItems = [];
+
+  // 加载菜单数据
+  async function loadMenu() {
+    try {
+      const res = await fetch('/api/food/?business_id=1');
+      const data = await res.json();
+      allMenuItems = data;
+      displayMenuItems(allMenuItems);
+    } catch (err) {
+      document.getElementById('menu-container').innerHTML = '<p class="text-danger text-center">Failed to load menu.</p>';
+      console.error(err);
+    }
+  }
+
+  // 显示菜品列表
+  function displayMenuItems(items) {
+    const container = document.getElementById('menu-container');
+    container.innerHTML = '';
+
+    if (items.length === 0) {
+      container.innerHTML = '<p class="text-center text-muted">No items in this category.</p>';
+      return;
+    }
+
+    items.forEach(item => {
+      const menuItem = document.createElement('div');
+      menuItem.className = 'menu-item';
+      
+      // 为日式风格，添加小图标
+      const japaneseIcon = '<div class="japanese-icon">🍙</div>';
+
+      menuItem.innerHTML = `
+        <img src="${item.image || '/static/picture/default.png'}" alt="${item.item}" class="menu-item-image">
+        <div class="menu-item-content">
+          ${japaneseIcon}
+          <h5 class="menu-item-title">${item.item}</h5>
+          <p class="menu-item-desc">${item.description || ''}</p>
+          <button class="add-btn" onclick="addToCart(${item.id})">+ ADD</button>
+        </div>
+      `;
+      container.appendChild(menuItem);
+    });
+  }
+
+  // 添加到购物车
+  function addToCart(itemId) {
+    const item = allMenuItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    // 检查购物车中是否已有此商品
+    const existingItem = cart.find(i => i.id === itemId);
+    if (existingItem) {
+      existingItem.quantity += 1;
+    } else {
+      cart.push({
+        id: item.id,
+        name: item.item,
+        price: item.price,
+        quantity: 1
+      });
+    }
+
+    // 更新购物车计数
+    updateCartCount();
+    
+    // 显示购物车按钮
+    document.getElementById('cart-button').style.display = 'block';
+    
+    // 显示添加成功的动画或提示
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ ADDED';
+    btn.style.backgroundColor = '#28a745';
+    btn.style.color = 'white';
+    
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.backgroundColor = '';
+      btn.style.color = '';
+    }, 1000);
+  }
+
+  // 更新购物车计数
+  function updateCartCount() {
+    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+    document.getElementById('cart-count').textContent = totalItems;
+  }
+
+  // 页面加载完成执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 加载菜单
+    loadMenu();
+    
+    // 为分类按钮添加点击事件
+    document.addEventListener('click', function(event) {
+      if (event.target.classList.contains('category-btn')) {
+        // 更新按钮样式
+        document.querySelectorAll('.category-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        const categoryId = event.target.getAttribute('data-category');
+        
+        if (categoryId === 'all') {
+          // 显示所有菜品
+          displayMenuItems(allMenuItems);
+        } else {
+          // 按分类筛选菜品
+          const filteredItems = allMenuItems.filter(item => item.category === parseInt(categoryId));
+          displayMenuItems(filteredItems);
+        }
+      }
+    });
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- 购物车侧边栏（Bootstrap Offcanvas） -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar" aria-labelledby="cartSidebarLabel">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="cartSidebarLabel">🛒 Your Order</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div id="cart-items"></div>
+    <hr />
+    <p><strong>Total:</strong> $<span id="cart-total">0.00</span></p>
+    <button class="btn btn-danger w-100 mb-2" onclick="clearCart()">🗑️ Clear Cart</button>
+    <button class="btn btn-success w-100" onclick="confirmOrder()">✅ Confirm Order</button>
+
+  </div>
+</div>
+
+<script>
+  const cartButton = document.getElementById('cart-button').querySelector('button');
+
+  cartButton.addEventListener('click', () => {
+    renderCartSidebar();
+    const offcanvas = new bootstrap.Offcanvas(document.getElementById('cartSidebar'));
+    offcanvas.show();
+  });
+
+  function renderCartSidebar() {
+    const container = document.getElementById('cart-items');
+    container.innerHTML = '';
+    let total = 0;
+
+    cart.forEach(item => {
+      const priceNum = parseFloat(item.price);
+      total += priceNum * item.quantity;
+      container.innerHTML += `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <strong>${item.name}</strong><br/>
+            <small>${item.quantity} x $${priceNum.toFixed(2)}</small>
+          </div>
+          <div class="btn-group btn-group-sm" role="group">
+            <button onclick="updateQuantity(${item.id}, -1)" class="btn btn-outline-danger">-</button>
+            <button onclick="updateQuantity(${item.id}, 1)" class="btn btn-outline-success">+</button>
+          </div>
+        </div>
+`;
+
+    });
+
+    document.getElementById('cart-total').textContent = total.toFixed(2);
+  }
+
+  function updateQuantity(itemId, delta) {
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return;
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+      cart = cart.filter(i => i.id !== itemId);
+    }
+    updateCartCount();
+    renderCartSidebar();
+  }
+
+  function clearCart() {
+    cart = [];
+    updateCartCount();
+    renderCartSidebar();
+  }
+  
+const TABLE_NUMBER = "15";
+
+async function confirmOrder() {
+  if (cart.length === 0) {
+    alert("Cart is empty.");
+    return;
+  }
+
+  console.log("Submitting order...", cart);  // For debugging
+
+  const orderData = {
+    table_number: "{{ table_number }}",  // Django template variable
+    items: cart.map(item => ({
+      item_id: item.id,
+      amount: item.quantity
+    }))
+  };
+
+  // Get the CSRF token from the cookie
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  
+  const csrftoken = getCookie('csrftoken');
+  console.log("CSRF Token:", csrftoken); // For debugging
+
+  try {
+    const response = await fetch('/api/order/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken  // Include the CSRF token
+      },
+      body: JSON.stringify(orderData)
+    });
+
+    console.log("Response status:", response.status);
+    
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (e) {
+      responseData = { error: "Could not parse response" };
+    }
+    
+    console.log("Response data:", responseData);
+    
+    if (response.ok) {
+      alert('✅ Order placed successfully!');
+      cart = [];
+      updateCartCount();
+      renderCartSidebar();
+      
+      // Close the sidebar
+      const offcanvasElement = document.getElementById('cartSidebar');
+      const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
+      if (offcanvas) offcanvas.hide();
+    } else {
+      console.error("Server error:", responseData);
+      alert('❌ Failed to submit order: ' + (responseData.error || responseData.detail || JSON.stringify(responseData)));
+    }
+  } catch (err) {
+    console.error("Client error:", err);
+    alert('❌ Network error while submitting order');
+  }
+}
+</script>
+
+</body>
+</html>
