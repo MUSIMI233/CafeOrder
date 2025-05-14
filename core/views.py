@@ -209,6 +209,7 @@ def menu_management_view(request):
         'promo_form': promo_form,
         'category_form': category_form,
         'categories': categories,
+        'food_items': food_items
     })
 
 # ============ 标记订单完成 ============
